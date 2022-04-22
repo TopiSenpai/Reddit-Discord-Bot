@@ -1,4 +1,4 @@
-package main
+package dbot
 
 import (
 	"context"
@@ -11,45 +11,51 @@ import (
 	"github.com/disgoorg/disgo/events"
 )
 
-var subredditNamePattern = regexp.MustCompile(`\A(r/)?(?P<name>[A-Za-z\d]\w{2,20})$`)
-
-var commands = []discord.ApplicationCommandCreate{
-	discord.SlashCommandCreate{
-		CommandName: "subreddit",
-		Description: "lets you manage all your subreddits",
-		Options: []discord.ApplicationCommandOption{
-			discord.ApplicationCommandOptionSubCommand{
-				Name:        "add",
-				Description: "adds a subreddit",
-				Options: []discord.ApplicationCommandOption{
-					discord.ApplicationCommandOptionString{
-						Name:        "subreddit",
-						Description: "the subreddit to add",
-						Required:    true,
+var (
+	subredditNamePattern = regexp.MustCompile(`\A(r/)?(?P<name>[A-Za-z\d]\w{2,20})$`)
+	commands             = []discord.ApplicationCommandCreate{
+		discord.SlashCommandCreate{
+			CommandName: "subreddit",
+			Description: "lets you manage all your subreddits",
+			Options: []discord.ApplicationCommandOption{
+				discord.ApplicationCommandOptionSubCommand{
+					Name:        "add",
+					Description: "adds a subreddit",
+					Options: []discord.ApplicationCommandOption{
+						discord.ApplicationCommandOptionString{
+							Name:        "subreddit",
+							Description: "the subreddit to add",
+							Required:    true,
+						},
 					},
 				},
-			},
-			discord.ApplicationCommandOptionSubCommand{
-				Name:        "remove",
-				Description: "removes a subreddit",
-				Options: []discord.ApplicationCommandOption{
-					discord.ApplicationCommandOptionString{
-						Name:        "subreddit",
-						Description: "the subreddit to remove",
-						Required:    true,
+				discord.ApplicationCommandOptionSubCommand{
+					Name:        "remove",
+					Description: "removes a subreddit",
+					Options: []discord.ApplicationCommandOption{
+						discord.ApplicationCommandOptionString{
+							Name:        "subreddit",
+							Description: "the subreddit to remove",
+							Required:    true,
+						},
 					},
 				},
+				discord.ApplicationCommandOptionSubCommand{
+					Name:        "list",
+					Description: "lists all added subreddits",
+				},
 			},
-			discord.ApplicationCommandOptionSubCommand{
-				Name:        "list",
-				Description: "lists all added subreddits",
-			},
+			DefaultPermission: true,
 		},
-		DefaultPermission: true,
-	},
-}
+		discord.SlashCommandCreate{
+			CommandName:       "info",
+			Description:       "gets info about this bot",
+			DefaultPermission: true,
+		},
+	}
+)
 
-func (b *RedditBot) onApplicationCommandInteraction(event *events.ApplicationCommandInteractionEvent) {
+func (b *Bot) onApplicationCommandInteraction(event *events.ApplicationCommandInteractionEvent) {
 	data := event.SlashCommandInteractionData()
 	var err error
 	if data.CommandName() == "subreddit" {
@@ -84,7 +90,7 @@ func parseSubredditName(name string) (string, bool) {
 	return strings.ToLower(match[subredditNamePattern.SubexpIndex("name")]), true
 }
 
-func (b *RedditBot) onSubredditAdd(event *events.ApplicationCommandInteractionEvent, data discord.SlashCommandInteractionData) error {
+func (b *Bot) onSubredditAdd(event *events.ApplicationCommandInteractionEvent, data discord.SlashCommandInteractionData) error {
 	subreddit, ok := parseSubredditName(data.String("subreddit"))
 	if !ok {
 		return event.CreateMessage(discord.NewMessageCreateBuilder().
@@ -127,7 +133,7 @@ func (b *RedditBot) onSubredditAdd(event *events.ApplicationCommandInteractionEv
 	)
 }
 
-func (b *RedditBot) onSubredditRemove(event *events.ApplicationCommandInteractionEvent, data discord.SlashCommandInteractionData) error {
+func (b *Bot) onSubredditRemove(event *events.ApplicationCommandInteractionEvent, data discord.SlashCommandInteractionData) error {
 	subreddit, ok := parseSubredditName(data.String("subreddit"))
 	if !ok {
 		return event.CreateMessage(discord.NewMessageCreateBuilder().
@@ -154,7 +160,7 @@ func (b *RedditBot) onSubredditRemove(event *events.ApplicationCommandInteractio
 	)
 }
 
-func (b *RedditBot) onSubredditList(event *events.ApplicationCommandInteractionEvent) error {
+func (b *Bot) onSubredditList(event *events.ApplicationCommandInteractionEvent) error {
 	var subscriptions []*Subscription
 	var message string
 	if err := b.DB.NewSelect().Model(&subscriptions).Where("guild_id = ?", *event.GuildID()).Scan(context.TODO()); err != nil {
